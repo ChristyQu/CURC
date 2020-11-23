@@ -12,7 +12,7 @@ Original file is located at
 # patien_type:Outpatient - 1, Inpatient - 2
 # intubed:Yes - 1, No - 2, Data missing or NA - 97,98,99
 # pneumonia:Yes - 1, No - 2, Data missing or NA - 97,98,99
-# age Yes - 1, No - 2, Data missing or NA - 97,98,99
+# age: continues variable
 # pregnancy Yes - 1, No - 2, Data missing or NA - 97,98,99
 # diabetes Yes - 1, No - 2, Data missing or NA - 97,98,99
 # copd Yes - 1, No - 2, Data missing or NA - 97,98,99
@@ -33,6 +33,9 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.ensemble import GradientBoostingClassifier
+from xgboost import XGBClassifier
 from sklearn import metrics
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.datasets import load_digits
@@ -43,10 +46,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import numpy as np
-
-
 from sklearn import datasets
-from sklearn.tree import DecisionTreeRegressor
 
 # read data
 df = pd.read_csv('covid.csv')
@@ -143,18 +143,6 @@ df=df[df['icu']!=97]
 df.head()
 df.describe()
 
-# original!
-# missing values
-#missing_values = ["97","98","99"]
-#df = pd.read_csv('sample_data/covid.csv',na_values = missing_values)
-
-#df.describe()
-
-# original!
-# drop missing values
-#intermediatedf = df.dropna()
-#intermediatedf.describe()
-
 # all sex = 1 and all patient_type = 2, drop the first two columns: only focus on female inpatient
 # we don't care about id: drop it
 
@@ -183,24 +171,6 @@ df = df.drop(['entry_date','date_symptoms','date_died'], axis = 1)
 
 df.describe()
 
-df.to_csv(path_or_buf="data_half_ready.csv")
-
-plt.boxplot(x = df["age"], 
- 
-            patch_artist=True, 
- 
-            showmeans=True, 
- 
-            boxprops = {'color':'black','facecolor':'#9999ff'}, 
- 
-            flierprops = {'marker':'o','markerfacecolor':'red','color':'black'}, 
- 
-            meanprops = {'marker':'D','markerfacecolor':'indianred'}, 
- 
-            medianprops = {'linestyle':'--','color':'orange'}) 
-
-plt.show()
-
 conditions = [
     (df['entry_symptoms'] <= 1),
     (df['entry_symptoms'] > 1) & (df['entry_symptoms'] <= 3),
@@ -213,7 +183,7 @@ values = ['0', '1', '3', '5','10']
 
 df['date_diff_level'] = np.select(conditions, values)
 
-plt.hist(df['date_diff_level'], edgecolor='k', alpha=0.35) # 设置直方边线颜色为黑色，不透明度为 0.35
+plt.hist(df['date_diff_level'], edgecolor='k', alpha=0.35)
 plt.show()
 
 df.head()
@@ -223,112 +193,11 @@ df = df.drop(['entry_symptoms'], axis = 1)
 
 df.head()
 
-# df['intubed'] = np.where(df['intubed'] == 1, 'Yes', 'No')
-# df['pneumonia'] = np.where(df['pneumonia'] == 1, 'Yes', 'No')
-# df['pregnancy'] = np.where(df['pregnancy'] == 1, 'Yes', 'No')
-# df['diabetes'] = np.where(df['diabetes'] == 1, 'Yes', 'No')
-# df['copd'] = np.where(df['copd'] == 1, 'Yes', 'No')
-# df['asthma'] = np.where(df['asthma'] == 1, 'Yes', 'No')
-# df['inmsupr'] = np.where(df['inmsupr'] == 1, 'Yes', 'No')
-# df['hypertension'] = np.where(df['hypertension'] == 1, 'Yes', 'No')
-# df['other_disease'] = np.where(df['other_disease'] == 1, 'Yes', 'No')
-# df['cardiovascular'] = np.where(df['cardiovascular'] == 1, 'Yes', 'No')
-# df['obesity'] = np.where(df['obesity'] == 1, 'Yes', 'No')
-# df['renal_chronic'] = np.where(df['renal_chronic'] == 1, 'Yes', 'No')
-# df['tobacco'] = np.where(df['tobacco'] == 1, 'Yes', 'No')
-# df['contact_other_covid'] = np.where(df['contact_other_covid'] == 1, 'Yes', 'No')
-# df['icu'] = np.where(df['icu'] == 1, 'Yes', 'No')
-
-# df['intubed'] = np.where(df['intubed'] == 1, 0, 1)
-# df['pneumonia'] = np.where(df['pneumonia'] == 1, 0, 1)
-# df['pregnancy'] = np.where(df['pregnancy'] == 1, 0, 1)
-# df['diabetes'] = np.where(df['diabetes'] == 1, 0, 1)
-# df['copd'] = np.where(df['copd'] == 1, 0, 1)
-# df['asthma'] = np.where(df['asthma'] == 1, 0, 1)
-# df['inmsupr'] = np.where(df['inmsupr'] == 1, 0, 1)
-# df['hypertension'] = np.where(df['hypertension'] == 1, 0, 1)
-# df['other_disease'] = np.where(df['other_disease'] == 1, 0, 1)
-# df['cardiovascular'] = np.where(df['cardiovascular'] == 1, 0, 1)
-# df['obesity'] = np.where(df['obesity'] == 1, 0, 1)
-# df['renal_chronic'] = np.where(df['renal_chronic'] == 1, 0, 1)
-# df['tobacco'] = np.where(df['tobacco'] == 1, 0, 1)
-# df['contact_other_covid'] = np.where(df['contact_other_covid'] == 1, 0, 1)
-# df['icu'] = np.where(df['icu'] == 1, 0, 1)
-
-df.head()
-
-# new_conditions = [(df['covid_res'] == 1),(df['covid_res'] == 2),(df['covid_res'] == 3)]
-# new_values = ['Positive', 'Negative', 'Waiting']
-# df['covid_res'] = np.select(new_conditions, new_values)
 df.describe()
 
 df.to_csv(path_or_buf="data_ready.csv")
 
-df.fatality.unique()
-
-# #split x and y, split train set and test set
-# y = df['fatality']
-# x = df.drop('fatality',axis = 1)
-# x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
-# x_train.head
-
-# # random forest
-# #kfold = StratifiedKFold(n_splits=20)
-# model = RandomForestClassifier()
-# rf_param_grid = {"max_depth": [None],
-#                 #  "max_features": [1, 5, 9, 13, 17],
-#               "min_samples_split": [6, 7, 8, 9], # 7
-#               "min_samples_leaf": [15, 20, 30, 50], # 20
-#               "n_estimators" :[500,1000,2000], # 500
-#               "criterion": ["gini"]}
-# gsmodel = GridSearchCV(model,param_grid = rf_param_grid, scoring="accuracy", n_jobs= 1, verbose = 1)
-# gsmodel.fit(x,y)
-# model_best = gsmodel.best_estimator_
-# print(model_best)
-# print(gsmodel.best_score_)
-
-y = df['fatality']
-x = df.drop('fatality',axis = 1)
-
-# all default
-rf0 = RandomForestClassifier(oob_score=True, random_state=10)
-rf0.fit(x,y)
-print(rf0.oob_score_)
-y_predprob = rf0.predict_proba(x)[:,1]
-print("AUC Score (Train): %f" % metrics.roc_auc_score(y, y_predprob))
-
-param_test1 = {'n_estimators':range(10,201,10)}
-gsearch1 = GridSearchCV(estimator = RandomForestClassifier(min_samples_split=100,
-                                  min_samples_leaf=20,max_depth=8,max_features='sqrt' ,random_state=10), 
-                       param_grid = param_test1, scoring='roc_auc',cv=5)
-gsearch1.fit(x,y)
-print(gsearch1.cv_results_, gsearch1.best_params_, gsearch1.best_score_)
-
-param_test2 = {'max_depth':range(5,25,2), 'min_samples_split':range(150,500,20)}
-gsearch2 = GridSearchCV(estimator = RandomForestClassifier(n_estimators= 130, 
-                                  min_samples_leaf=20,max_features='sqrt' ,oob_score=True, random_state=10),
-   param_grid = param_test2, scoring='roc_auc',iid=False, cv=5)
-gsearch2.fit(x,y)
-gsearch2.cv_results_, gsearch2.best_params_, gsearch2.best_score_
-
-param_test3 = {'min_samples_split':range(150,500,20), 'min_samples_leaf':range(5,100,5)}
-gsearch3 = GridSearchCV(estimator = RandomForestClassifier(n_estimators= 130, max_depth=5,
-                                  max_features='sqrt' ,oob_score=True, random_state=10),
-   param_grid = param_test3, scoring='roc_auc',iid=False, cv=5)
-gsearch3.fit(x,y)
-gsearch3.cv_results_, gsearch3.best_params_, gsearch3.best_score_
-
-param_test4 = {'max_features':range(2,30,1)}
-gsearch4 = GridSearchCV(estimator = RandomForestClassifier(n_estimators= 130, max_depth=5, min_samples_split=150,
-                                  min_samples_leaf=5 ,oob_score=True, random_state=10),
-   param_grid = param_test4, scoring='roc_auc',iid=False, cv=5)
-gsearch4.fit(x,y)
-gsearch4.cv_results_, gsearch4.best_params_, gsearch4.best_score_
-
-rf2 = RandomForestClassifier(n_estimators= 130, max_depth=5, min_samples_split=150,
-                                  min_samples_leaf=5,max_features=14 ,oob_score=True, random_state=10)
-rf2.fit(x,y)
-rf2.oob_score_
+#CLASSIFICATION TREE
 
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 
@@ -345,7 +214,11 @@ dt2 = DecisionTreeClassifier(criterion = 'entropy',random_state = 66)
 score = cross_val_score(dt2,x_train,y_train,cv=10).mean()
 print('entropy score: %.5f'%score)
 
-"""It can be seen above that the result using entropy is slightly better than using gini."""
+"""
+
+It can be seen above that the result using entropy is slightly better than using gini.
+
+"""
 
 # draw the plot for parameter:max_depth
 ScoreAll = []
@@ -371,3 +244,107 @@ dt3 = DecisionTreeClassifier(max_depth=15,min_samples_leaf=2,min_impurity_decrea
 dt3.fit(x_train,y_train)
 y_pred = dt3.predict(x_test)
 print('train set score', dt3.score(x_train,y_train),'test set score',dt3.score(x_test,y_test))
+
+# RANDOM FOREST
+
+y = df['fatality']
+x = df.drop('fatality',axis = 1)
+
+# all default
+rf0 = RandomForestClassifier(oob_score=True, random_state=10)
+rf0.fit(x,y)
+print(rf0.oob_score_)
+y_predprob = rf0.predict_proba(x)[:,1]
+print("AUC Score (Train): %f" % metrics.roc_auc_score(y, y_predprob))
+
+print(rf0.feature_importances_)
+
+feat_importances = pd.Series(rf0.feature_importances_, index=x.columns)
+feat_importances.nlargest(5).plot(kind='barh')
+
+param_test1 = {'n_estimators':range(10,201,10)}
+gsearch1 = GridSearchCV(estimator = RandomForestClassifier(min_samples_split=100,
+                                  min_samples_leaf=20,max_depth=8,max_features='sqrt',random_state=10), 
+                       param_grid = param_test1, scoring='roc_auc',cv=5)
+gsearch1.fit(x,y)
+print(gsearch1.best_params_, gsearch1.best_score_)
+
+param_test2 = {'max_depth':range(2,18,2)}
+gsearch2 = GridSearchCV(estimator = RandomForestClassifier(n_estimators=70,min_samples_split=100, 
+                                  min_samples_leaf=20,max_features='sqrt',oob_score=True, random_state=10),
+   param_grid = param_test2, scoring='roc_auc',iid=False, cv=5)
+gsearch2.fit(x,y)
+print(gsearch2.best_params_, gsearch2.best_score_)
+
+param_test3 = {'min_samples_split':range(80,150,20), 'min_samples_leaf':range(5,50,5)}
+gsearch3 = GridSearchCV(estimator = RandomForestClassifier(n_estimators=70, max_depth=8,
+                                  max_features='sqrt' ,oob_score=True, random_state=10),
+   param_grid = param_test3, scoring='roc_auc',iid=False, cv=5)
+gsearch3.fit(x,y)
+print(gsearch3.best_params_, gsearch3.best_score_)
+
+param_test4 = {'max_features':range(2,18,1)}
+gsearch4 = GridSearchCV(estimator = RandomForestClassifier(n_estimators=70, max_depth=8, min_samples_split=80,
+                                  min_samples_leaf=10 ,oob_score=True, random_state=10),
+   param_grid = param_test4, scoring='roc_auc',iid=False, cv=5)
+gsearch4.fit(x,y)
+print(gsearch4.best_params_, gsearch4.best_score_)
+
+rf1 = RandomForestClassifier(n_estimators= 70, max_depth=8, min_samples_split=80,
+                                  min_samples_leaf=10,max_features=4 ,oob_score=True, random_state=10)
+rf1.fit(x,y)
+rf1.oob_score_
+
+print(rf1.feature_importances_)
+
+feat_importances = pd.Series(rf0.feature_importances_, index=x.columns)
+feat_importances.nlargest(5).plot(kind='barh')
+
+#BOOSTING
+
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+
+lr_list = [0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1]
+
+for learning_rate in lr_list:
+    gb_clf = GradientBoostingClassifier(n_estimators=20, learning_rate=learning_rate, max_features=2, max_depth=2, random_state=0)
+    gb_clf.fit(x_train, y_train)
+
+    print("Learning rate: ", learning_rate)
+    print("Accuracy score (training):", gb_clf.score(x_train, y_train))
+    print("Accuracy score (validation)",gb_clf.score(x_test, y_test))
+
+# select learning rate = 0.75
+
+gb_clf2 = GradientBoostingClassifier(n_estimators=20, learning_rate=0.75, max_features=2, max_depth=2, random_state=0)
+gb_clf2.fit(x_train, y_train)
+predictions = gb_clf2.predict(x_test)
+
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, predictions))
+
+print("Classification Report")
+print(classification_report(y_test, predictions))
+
+gb_clf2.feature_importances_
+
+feat_importances = pd.Series(gb_clf2.feature_importances_, index=x.columns)
+feat_importances.nlargest(5).plot(kind='barh')
+
+x_train['date_diff_level'] = pd.to_numeric(x_train['date_diff_level'])
+x_test['date_diff_level'] = pd.to_numeric(x_test['date_diff_level'])
+
+xgb_clf3 = XGBClassifier()
+xgb_clf3.fit(x_train, y_train)
+
+score = xgb_clf3.score(x_test, y_test)
+print(score)
+
+xgb_clf3.feature_importances_
+
+feat_importances = pd.Series(xgb_clf3.feature_importances_, index=x.columns)
+feat_importances.nlargest(5).plot(kind='barh')
+
+"""END OF CODE
+
+"""
